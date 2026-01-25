@@ -26,12 +26,22 @@ class _ProfilePageState extends State<ProfilePage> {
         .eq('id', user.id)
         .maybeSingle();
 
-    if (data == null) return {'email': user.email};
+    final privateData = await _supabase
+        .from('profile_private')
+        .select('phone')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    final phone = privateData?['phone'];
+
+    if (data == null) return {'email': user.email, 'phone': phone};
+
     return {
       'name': data['name'],
       'department': data['department'],
       'points': data['points'],
       'email': user.email,
+      'phone': phone,
     };
   }
 
@@ -91,20 +101,12 @@ class _ProfilePageState extends State<ProfilePage> {
             final name = profile?['name']?.toString() ?? 'Unknown';
             final department = profile?['department']?.toString() ?? 'Not set';
             final email = profile?['email']?.toString() ?? 'No email';
+            final phone = profile?['phone']?.toString() ?? 'Not set';
             final points = profile?['points']?.toString() ?? '0';
 
             return ListView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
               children: [
-                Text(
-                  'TraceIt',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF111827),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
                 Center(
                   child: CircleAvatar(
                     radius: 36,
@@ -130,6 +132,10 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(height: 16),
 
                 _ProfileField(label: 'Email', value: email),
+                const SizedBox(height: 16),
+
+                // Added: Phone (same UI component, no UI redesign)
+                _ProfileField(label: 'Phone', value: phone),
                 const SizedBox(height: 16),
 
                 _ProfileField(

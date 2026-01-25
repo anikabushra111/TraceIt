@@ -2,9 +2,10 @@
     package="com.example.trace_it">
 
     <application
-        android:label="trace_it"
-        android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+    android:label="Trace It"
+    android:name="${applicationName}"
+    android:icon="@mipmap/ic_launcher">
+
 
         <activity
             android:name=".MainActivity"
@@ -22,13 +23,14 @@
             </intent-filter>
 
             <!-- Deep link: traceit://reset-password -->
+            
             <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="traceit"
-                    android:host="reset-password" />
+               <action android:name="android.intent.action.VIEW" />
+               <category android:name="android.intent.category.DEFAULT" />
+               <category android:name="android.intent.category.BROWSABLE" />
+               <data
+                   android:scheme="traceit"
+                   android:host="login-callback" />
             </intent-filter>
 
         </activity>

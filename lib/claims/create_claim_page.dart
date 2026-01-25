@@ -8,7 +8,7 @@ class CreateClaimPage extends StatefulWidget {
     super.key,
     required this.postId,
     required this.postOwnerId,
-    required this.postType, // lost / found
+    required this.postType,
   });
 
   final String postId;
@@ -94,7 +94,11 @@ class _CreateClaimPageState extends State<CreateClaimPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Write a message to the post owner.'),
+              Text(
+                _isLost
+                    ? "Write a message to the owner to prove you've really found this item."
+                    : "Write a message to the owner to prove this item belongs to you.",
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: _message,

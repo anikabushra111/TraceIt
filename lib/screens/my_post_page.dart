@@ -256,206 +256,217 @@ class _MyPostsPageState extends State<MyPostsPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('My posts')),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _loadScreenData(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: SafeArea(
+        child: FutureBuilder<Map<String, dynamic>>(
+          future: _loadScreenData(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          final isAdmin = snapshot.data?['isAdmin'] as bool? ?? false;
-          final posts =
-              snapshot.data?['posts'] as List<Map<String, dynamic>>? ?? [];
+            final isAdmin = snapshot.data?['isAdmin'] as bool? ?? false;
+            final posts =
+                snapshot.data?['posts'] as List<Map<String, dynamic>>? ?? [];
 
-          if (posts.isEmpty) {
-            return const Center(
-              child: Text('You have not created any posts yet.'),
-            );
-          }
+            if (posts.isEmpty) {
+              return const Center(
+                child: Text('You have not created any posts yet.'),
+              );
+            }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: posts.length,
-            itemBuilder: (context, index) {
-              final p = posts[index];
-              final status = (p['status'] ?? 'pending').toString();
-              final created =
-                  DateTime.tryParse(p['created_at']?.toString() ?? '') ??
-                  DateTime.now();
+            final bottomPad = MediaQuery.of(context).padding.bottom;
 
-              final description = (p['description'] ?? '').toString();
-              final imageUrl = (p['image_url'] ?? '').toString();
-              final isResolved = p['is_resolved'] == true;
+            return ListView.builder(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPad),
+              itemCount: posts.length,
+              itemBuilder: (context, index) {
+                final p = posts[index];
+                final status = (p['status'] ?? 'pending').toString();
+                final created =
+                    DateTime.tryParse(p['created_at']?.toString() ?? '') ??
+                    DateTime.now();
 
-              final hasLongText = description.length > 120;
-              final shortDescription = hasLongText
-                  ? '${description.substring(0, 120)}...'
-                  : description;
+                final description = (p['description'] ?? '').toString();
+                final imageUrl = (p['image_url'] ?? '').toString();
+                final isResolved = p['is_resolved'] == true;
 
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 1,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+                final hasLongText = description.length > 120;
+                final shortDescription = hasLongText
+                    ? '${description.substring(0, 120)}...'
+                    : description;
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Title + actions
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    p['title'] ?? '',
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w600),
+                  elevation: 1,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Title + actions
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      p['title'] ?? '',
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
                                   ),
-                                ),
-                                if (isResolved) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(
-                                        0xFF16A34A,
-                                      ).withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: const Text(
-                                      'Resolved',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF16A34A),
+                                  if (isResolved) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(
+                                          0xFF16A34A,
+                                        ).withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'Resolved',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF16A34A),
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                  ],
                                 ],
-                              ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              onPressed: () => _openEditPost(p),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 18),
+                              onPressed: () => _deleteMyPost(p['id'] as String),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+
+                        // View claims
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.inbox_outlined),
+                            label: const Text('View claims'),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => ClaimsForPostPage(
+                                    postId: p['id'] as String,
+                                    postTitle: (p['title'] ?? '').toString(),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+
+                        if (!isAdmin)
+                          Text(
+                            'Status: $status',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _statusColor(status),
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: () => _openEditPost(p),
+                        const SizedBox(height: 6),
+
+                        Text(
+                          shortDescription,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        if (hasLongText)
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(0, 0),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text(p['title'] ?? ''),
+                                  content: SingleChildScrollView(
+                                    child: Text(description),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(),
+                                      child: const Text('Close'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            child: const Text('See more'),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, size: 18),
-                            onPressed: () => _deleteMyPost(p['id'] as String),
+
+                        // Image (tap to view/delete)
+                        if (imageUrl.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          GestureDetector(
+                            onTap: () => _openMyPostImageActions(p),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                imageUrl,
+                                height: 170,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 6),
 
-                      // View claims
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.inbox_outlined),
-                          label: const Text('View claims'),
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => ClaimsForPostPage(
-                                  postId: p['id'] as String,
-                                  postTitle: (p['title'] ?? '').toString(),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-
-                      if (!isAdmin)
-                        Text(
-                          'Status: $status',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: _statusColor(status),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      const SizedBox(height: 6),
-
-                      Text(shortDescription, style: theme.textTheme.bodyMedium),
-                      if (hasLongText)
-                        TextButton(
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: const Size(0, 0),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text(p['title'] ?? ''),
-                                content: SingleChildScrollView(
-                                  child: Text(description),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(),
-                                    child: const Text('Close'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                          child: const Text('See more'),
-                        ),
-
-                      // Image (tap to view/delete)
-                      if (imageUrl.isNotEmpty) ...[
                         const SizedBox(height: 10),
-                        GestureDetector(
-                          onTap: () => _openMyPostImageActions(p),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              imageUrl,
-                              height: 170,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
+
+                        // Date
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '${created.day}/${created.month}/${created.year}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey,
                             ),
                           ),
                         ),
                       ],
-
-                      const SizedBox(height: 10),
-
-                      // Date
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '${created.day}/${created.month}/${created.year}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

@@ -5,7 +5,10 @@ class AppNotification {
   final String body;
   final DateTime createdAt;
   final DateTime? readAt;
+
   final Map<String, dynamic> data;
+  String? get postId => data['post_id']?.toString();
+  String? get claimId => data['claim_id']?.toString();
 
   AppNotification({
     required this.id,
@@ -17,19 +20,21 @@ class AppNotification {
     required this.data,
   });
 
-  factory AppNotification.fromMap(Map<String, dynamic> m) {
+  bool get isUnread => readAt == null;
+
+  factory AppNotification.fromMap(Map<String, dynamic> map) {
     return AppNotification(
-      id: (m['id'] as num).toInt(),
-      type: (m['type'] ?? '').toString(),
-      title: (m['title'] ?? '').toString(),
-      body: (m['body'] ?? '').toString(),
-      createdAt: DateTime.parse(m['created_at'].toString()),
-      readAt: m['read_at'] == null
-          ? null
-          : DateTime.parse(m['read_at'].toString()),
-      data: (m['data'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{},
+      id: (map['id'] as num).toInt(),
+      type: (map['type'] ?? 'unknown').toString(),
+      title: (map['title'] ?? '').toString(),
+      body: (map['body'] ?? '').toString(),
+      createdAt: DateTime.parse(map['created_at'].toString()),
+      readAt: map['read_at'] != null
+          ? DateTime.parse(map['read_at'].toString())
+          : null,
+      data:
+          (map['data'] as Map?)?.cast<String, dynamic>() ??
+          const <String, dynamic>{},
     );
   }
-
-  bool get isUnread => readAt == null;
 }

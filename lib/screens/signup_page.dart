@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:trace_it/auth/auth_service.dart';
-import 'home_page.dart';
 import 'login_page.dart';
 
 import '../widgets/bd_phone_field.dart';
@@ -69,12 +68,12 @@ class _SignUpPageState extends State<SignUpPage> {
     final email = _email.text.trim();
     final pwd = _password.text.trim();
 
-    final local = _onlyDigits(_phone.text).trim(); // expects 1XXXXXXXXX
+    final local = _onlyDigits(_phone.text).trim();
     if (!BdPhoneField.isValidBdMobileLocalPart(local)) {
       setState(() => _error = 'Invalid BD phone. Use 1XXXXXXXXX (after +880).');
       return;
     }
-    final phoneE164 = BdPhoneField.toE164(local); // +8801XXXXXXXXX
+    final phoneE164 = BdPhoneField.toE164(local);
 
     setState(() {
       _loading = true;
@@ -91,12 +90,18 @@ class _SignUpPageState extends State<SignUpPage> {
       );
 
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomePage()),
-        (route) => false,
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Verification email sent. Please verify your email, then log in.',
+          ),
+        ),
       );
+
+      _openLogin();
     } catch (e) {
-      // ignore: avoid_print
       print('SIGNUP ERROR: $e');
       setState(() => _error = e.toString());
     } finally {

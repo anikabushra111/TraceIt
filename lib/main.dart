@@ -66,7 +66,6 @@ class _TraceItAppState extends State<TraceItApp> {
                 ),
               )
               .then((_) {
-                // If user presses back, allow recovery screen to open again later.
                 _recoveryScreenOpen = false;
               });
         });

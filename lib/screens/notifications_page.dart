@@ -14,7 +14,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
   late final Stream<List<Map<String, dynamic>>> _stream;
 
   @override
-  @override
   void initState() {
     super.initState();
 
@@ -28,30 +27,55 @@ class _NotificationsPageState extends State<NotificationsPage> {
         .from('notifications')
         .stream(primaryKey: ['id'])
         .eq('user_id', user.id)
-        .order('created_at', ascending: false);
-
-    // ✅ ADD THIS (right here)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _markAllRead();
-    });
+        .order('created_at', ascending: false)
+        .limit(200); // keep it snappy
   }
 
   Future<void> _markRead(int id) async {
-    await _supabase
-        .from('notifications')
-        .update({'read_at': DateTime.now().toIso8601String()})
-        .eq('id', id);
+    try {
+      await _supabase
+          .from('notifications')
+          .update({'read_at': DateTime.now().toIso8601String()})
+          .eq('id', id);
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Mark read failed: $e')));
+    }
   }
 
   Future<void> _markAllRead() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return;
 
-    await _supabase
-        .from('notifications')
-        .update({'read_at': DateTime.now().toIso8601String()})
-        .eq('user_id', user.id)
-        .isFilter('read_at', null);
+    try {
+      await _supabase
+          .from('notifications')
+          .update({'read_at': DateTime.now().toIso8601String()})
+          .eq('user_id', user.id)
+          .isFilter('read_at', null);
+
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All notifications marked as read')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Mark all failed: $e')));
+    }
+  }
+
+  String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 
   @override
@@ -78,9 +102,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return const Center(
-                    child: Text('Failed to load notifications'),
-                  );
+                  return Center(child: Text('Error: ${snapshot.error}'));
                 }
 
                 final rows = snapshot.data ?? const [];
@@ -100,7 +122,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     return InkWell(
                       borderRadius: BorderRadius.circular(14),
                       onTap: () async {
-                        if (n.isUnread) await _markRead(n.id);
+                        if (n.isUnread) {
+                          await _markRead(n.id);
+                        }
                       },
                       child: Container(
                         decoration: BoxDecoration(
@@ -146,13 +170,5 @@ class _NotificationsPageState extends State<NotificationsPage> {
               },
             ),
     );
-  }
-
-  String _timeAgo(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
   }
 }

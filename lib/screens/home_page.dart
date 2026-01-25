@@ -34,11 +34,63 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [_buildFeed(context), const PostPage(), const ProfilePage()];
+    final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: pages[_tabIndex],
+
+      appBar: _tabIndex == 0
+          ? AppBar(
+              actions: [
+                const NotificationBell(),
+                IconButton(
+                  icon: const Icon(Icons.logout),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Log out?'),
+                        content: const Text(
+                          'Are you sure you want to log out of TraceIt?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Log out'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true) {
+                      await _supabase.auth.signOut();
+                      if (!mounted) return;
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const AuthGate()),
+                        (route) => false,
+                      );
+                    }
+                  },
+                ),
+              ],
+            )
+          : null,
+
+      body: SafeArea(
+        child: IndexedStack(
+          index: _tabIndex,
+          children: [
+            _buildFeedBody(context, theme),
+            const PostPage(),
+            const ProfilePage(),
+          ],
+        ),
+      ),
+
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _tabIndex,
         onTap: (i) => setState(() => _tabIndex = i),
@@ -54,152 +106,104 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildFeed(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('TraceIt'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black,
-        actions: [
-          const NotificationBell(), // ✅ Notifications
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Log out?'),
-                  content: const Text(
-                    'Are you sure you want to log out of TraceIt?',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Log out'),
-                    ),
-                  ],
-                ),
-              );
-
-              if (confirm == true) {
-                await _supabase.auth.signOut();
-                if (!mounted) return;
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const AuthGate()),
-                  (route) => false,
-                );
-              }
-            },
+  Widget _buildFeedBody(BuildContext context, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            'Trace It',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF111827),
+            ),
           ),
-        ],
-      ),
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
-                'Welcome back!',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF111827),
-                ),
-              ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
+          child: Text(
+            "Because lost shouldn’t mean gone.",
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF6B7280),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
-              child: Text(
-                'Track and find your lost items easily',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF6B7280),
-                ),
-              ),
-            ),
+          ),
+        ),
 
-            // Search + Sort
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Search posts...',
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: const Color(0xFFF3F4F6),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      onChanged: (value) =>
-                          setState(() => _searchText = value.trim()),
+        // Search + Sort
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search posts...',
+                    prefixIcon: const Icon(Icons.search),
+                    filled: true,
+                    fillColor: const Color(0xFFF3F4F6),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.sort),
-                    onSelected: (value) => setState(() => _sort = value),
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(value: 'newest', child: Text('Newest')),
-                      PopupMenuItem(value: 'oldest', child: Text('Oldest')),
-                    ],
-                  ),
+                  onChanged: (value) =>
+                      setState(() => _searchText = value.trim()),
+                ),
+              ),
+              const SizedBox(width: 8),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.sort),
+                onSelected: (value) => setState(() => _sort = value),
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'newest', child: Text('Newest')),
+                  PopupMenuItem(value: 'oldest', child: Text('Oldest')),
                 ],
               ),
-            ),
-            const SizedBox(height: 16),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
 
-            Expanded(
-              child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: _fetchPosts(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return const Center(child: Text('Failed to load posts'));
-                  }
-                  final posts = snapshot.data ?? [];
-                  if (posts.isEmpty) {
-                    return const _EmptyHome();
-                  }
+        Expanded(
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: _fetchPosts(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return const Center(child: Text('Failed to load posts'));
+              }
 
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 8,
-                    ),
-                    itemCount: posts.length,
-                    itemBuilder: (context, index) {
-                      final post = posts[index];
-                      return _PostCard(
-                        post: post,
-                        isAdmin: _isCurrentUserAdmin,
-                        currentUserId: _currentUserId,
-                        onUpdateStatus: _updatePostStatus,
-                        onDelete: _deletePost,
-                      );
-                    },
+              final posts = snapshot.data ?? [];
+              if (posts.isEmpty) {
+                return const _EmptyHome();
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 8,
+                ),
+                itemCount: posts.length,
+                itemBuilder: (context, index) {
+                  final post = posts[index];
+                  return _PostCard(
+                    post: post,
+                    isAdmin: _isCurrentUserAdmin,
+                    currentUserId: _currentUserId,
+                    onUpdateStatus: _updatePostStatus,
+                    onDelete: _deletePost,
                   );
                 },
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         ),
-      ),
+      ],
     );
   }
 
