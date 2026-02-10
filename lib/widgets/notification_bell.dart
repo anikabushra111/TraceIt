@@ -15,7 +15,6 @@ class NotificationBell extends StatelessWidget {
         context,
       ).push(MaterialPageRoute(builder: (_) => const NotificationsPage()));
 
-      // Force rebuild of the bell right after coming back
       if (context.mounted) {
         (context as Element).markNeedsBuild();
       }

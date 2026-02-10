@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:postgrest/postgrest.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PostPage extends StatefulWidget {
@@ -13,16 +15,18 @@ class PostPage extends StatefulWidget {
 class _PostPageState extends State<PostPage> {
   final _title = TextEditingController();
   final _description = TextEditingController();
+  final _reward = TextEditingController();
 
   final _supabase = Supabase.instance.client;
   final _picker = ImagePicker();
 
   File? _imageFile;
   bool _loading = false;
-  String? _error;
 
-  // post_type UI state
-  String _postType = 'lost'; // 'lost' | 'found'
+  String? _error;
+  String? _rewardError;
+
+  String _postType = 'lost';
 
   Future<void> _pickImage() async {
     final picked = await _picker.pickImage(
@@ -38,9 +42,11 @@ class _PostPageState extends State<PostPage> {
   void _reset() {
     _title.clear();
     _description.clear();
+    _reward.clear();
     setState(() {
       _imageFile = null;
       _error = null;
+      _rewardError = null;
       _postType = 'lost';
     });
   }
@@ -51,9 +57,54 @@ class _PostPageState extends State<PostPage> {
       setState(() => _error = 'You must be logged in to post');
       return;
     }
-    if (_title.text.trim().isEmpty || _description.text.trim().isEmpty) {
+
+    final title = _title.text.trim();
+    final desc = _description.text.trim();
+
+    if (title.isEmpty || desc.isEmpty) {
       setState(() => _error = 'Title and description are required');
       return;
+    }
+
+    // Reset previous errors
+    setState(() {
+      _error = null;
+      _rewardError = null;
+    });
+
+    final profile = await _supabase
+        .from('profiles')
+        .select('is_admin, points')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    final isAdmin = profile != null && profile['is_admin'] == true;
+    final myPoints = (profile?['points'] ?? 0) as int;
+
+    int? rewardValue;
+    if (_postType == 'lost') {
+      final rawReward = _reward.text.trim();
+
+      if (rawReward.isEmpty) {
+        setState(() => _rewardError = 'Reward is required');
+        return;
+      }
+
+      rewardValue = int.tryParse(rawReward);
+      if (rewardValue == null) {
+        setState(() => _rewardError = 'Reward must be a number');
+        return;
+      }
+
+      if (rewardValue < 10) {
+        setState(() => _rewardError = 'Minimum reward is 10');
+        return;
+      }
+
+      if (rewardValue > myPoints) {
+        setState(() => _rewardError = 'Insufficient points');
+        return;
+      }
     }
 
     setState(() {
@@ -65,47 +116,41 @@ class _PostPageState extends State<PostPage> {
     String? imagePath;
 
     try {
-      // 1) Upload image if selected
       if (_imageFile != null) {
         imagePath =
             'posts/${user.id}/${DateTime.now().millisecondsSinceEpoch}.jpg';
         await _supabase.storage
             .from('post-images')
-            .upload(imagePath, _imageFile!);
+            .upload(imagePath!, _imageFile!);
         imageUrl = _supabase.storage
             .from('post-images')
             .getPublicUrl(imagePath);
       }
 
-      // 2) Check if current user is admin
-      bool isAdmin = false;
-      final profile = await _supabase
-          .from('profiles')
-          .select('is_admin')
-          .eq('id', user.id)
-          .maybeSingle();
-
-      if (profile != null && profile['is_admin'] == true) {
-        isAdmin = true;
-      }
-
-      // 3) Insert post row (reward_points removed)
-      await _supabase.from('posts').insert({
+      final payload = <String, dynamic>{
         'user_id': user.id,
         'post_type': _postType,
-        'title': _title.text.trim(),
-        'description': _description.text.trim(),
+        'title': title,
+        'description': desc,
         'image_url': imageUrl,
         'image_path': imagePath,
         'status': isAdmin ? 'approved' : 'pending',
         'is_resolved': false,
-      });
+      };
+
+      if (_postType == 'lost') {
+        payload['reward'] = rewardValue;
+      }
+
+      await _supabase.from('posts').insert(payload);
 
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Post created')));
       _reset();
+    } on PostgrestException catch (e) {
+      setState(() => _error = 'Failed to create post: ${e.message}');
     } catch (e) {
       setState(() => _error = 'Failed to create post: $e');
     } finally {
@@ -117,6 +162,7 @@ class _PostPageState extends State<PostPage> {
   void dispose() {
     _title.dispose();
     _description.dispose();
+    _reward.dispose();
     super.dispose();
   }
 
@@ -138,7 +184,6 @@ class _PostPageState extends State<PostPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Post type selector
               Text(
                 'Post type',
                 style: theme.textTheme.labelMedium?.copyWith(
@@ -155,7 +200,13 @@ class _PostPageState extends State<PostPage> {
                 ],
                 onChanged: _loading
                     ? null
-                    : (v) => setState(() => _postType = v ?? 'lost'),
+                    : (v) {
+                        setState(() {
+                          _postType = v ?? 'lost';
+                          _rewardError = null;
+                          if (_postType == 'found') _reward.clear();
+                        });
+                      },
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: const Color(0xFFF3F4F6),
@@ -167,7 +218,6 @@ class _PostPageState extends State<PostPage> {
               ),
               const SizedBox(height: 16),
 
-              // Title
               Text(
                 'Title',
                 style: theme.textTheme.labelMedium?.copyWith(
@@ -189,6 +239,38 @@ class _PostPageState extends State<PostPage> {
                 ),
               ),
               const SizedBox(height: 16),
+
+              if (_postType == 'lost') ...[
+                Text(
+                  'Reward (points)',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF374151),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _reward,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(
+                    hintText: 'Minimum 10',
+                    errorText: _rewardError,
+                    filled: true,
+                    fillColor: const Color(0xFFF3F4F6),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onChanged: (_) {
+                    if (_rewardError != null) {
+                      setState(() => _rewardError = null);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Description
               Text(
@@ -214,7 +296,6 @@ class _PostPageState extends State<PostPage> {
               ),
               const SizedBox(height: 16),
 
-              // Image picker
               Row(
                 children: [
                   Text(

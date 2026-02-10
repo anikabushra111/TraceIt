@@ -15,7 +15,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
   bool _loading = false;
 
-  // Eye toggles
   bool _hideNew = true;
 
   String? _error;
@@ -40,11 +39,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   }
 
   String _friendlySupabaseError(Object e) {
-    // Supabase Flutter throws AuthException with a message you can show or map. [web:1199]
     if (e is AuthException) {
       final msg = e.message.trim();
 
-      // Optional mappings (adjust based on what you see in your logs)
       final lower = msg.toLowerCase();
       if (lower.contains('same') && lower.contains('password')) {
         return 'New password must be different from the old password.';
@@ -53,7 +50,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         return 'Session expired. Please open the reset link again.';
       }
 
-      // Fallback: show Supabase's message directly (more specific than your generic text). [web:1204]
       return msg.isEmpty ? 'Failed to update password.' : msg;
     }
 
@@ -81,8 +77,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     try {
       final res = await Supabase.instance.client.auth.updateUser(
         UserAttributes(password: _password.text.trim()),
-      ); // updateUser(password) is the correct API. [web:1199]
-
+      );
       if (res.user == null) {
         setState(() => _error = 'Failed to update password.');
         return;

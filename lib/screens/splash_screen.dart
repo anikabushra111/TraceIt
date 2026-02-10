@@ -34,7 +34,6 @@ class _SplashScreenState extends State<SplashScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Icon card (similar style to your PDF/onboarding)
                 Container(
                   width: 140,
                   height: 140,

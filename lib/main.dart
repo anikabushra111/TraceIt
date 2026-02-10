@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:trace_it/auth/auth_gate.dart';
 import 'package:trace_it/screens/reset_password_page.dart';
 
@@ -13,7 +12,6 @@ Future<void> main() async {
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttamlxcmVzdWtiZW1nYXRlc3hyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNTEzNjksImV4cCI6MjA3OTgyNzM2OX0.JSabellxOIEYEtUJ22xZbEC36xqKeCN2phF6D94dtdM',
   );
-
   runApp(const TraceItApp());
 }
 
@@ -41,7 +39,6 @@ class _TraceItAppState extends State<TraceItApp> {
     _authSub = supabase.auth.onAuthStateChange.listen((data) {
       final event = data.event;
 
-      // Handle recovery only here (NOT in AuthGate).
       if (event == AuthChangeEvent.passwordRecovery) {
         if (_recoveryScreenOpen) return;
         _recoveryScreenOpen = true;

@@ -31,7 +31,7 @@ class _MyPostsPageState extends State<MyPostsPage> {
     final data = await _supabase
         .from('posts')
         .select(
-          'id, title, description, status, created_at, image_url, image_path, post_type, is_resolved',
+          'id, title, description, status, created_at, image_url, image_path, post_type, is_resolved, reward',
         )
         .eq('user_id', user.id)
         .order('created_at', ascending: false);
@@ -286,6 +286,12 @@ class _MyPostsPageState extends State<MyPostsPage> {
                     DateTime.tryParse(p['created_at']?.toString() ?? '') ??
                     DateTime.now();
 
+                final postType = (p['post_type'] ?? '').toString();
+                final rewardRaw = p['reward'];
+                final reward = rewardRaw is int
+                    ? rewardRaw
+                    : int.tryParse((rewardRaw ?? '').toString());
+
                 final description = (p['description'] ?? '').toString();
                 final imageUrl = (p['image_url'] ?? '').toString();
                 final isResolved = p['is_resolved'] == true;
@@ -309,7 +315,6 @@ class _MyPostsPageState extends State<MyPostsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Title + actions
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -395,6 +400,20 @@ class _MyPostsPageState extends State<MyPostsPage> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+
+                        // Reward (Lost only)
+                        if (postType == 'lost' && reward != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Reward: $reward points',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
+
                         const SizedBox(height: 6),
 
                         Text(
@@ -429,7 +448,6 @@ class _MyPostsPageState extends State<MyPostsPage> {
                             child: const Text('See more'),
                           ),
 
-                        // Image (tap to view/delete)
                         if (imageUrl.isNotEmpty) ...[
                           const SizedBox(height: 10),
                           GestureDetector(

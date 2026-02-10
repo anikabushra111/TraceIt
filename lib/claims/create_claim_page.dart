@@ -52,7 +52,6 @@ class _CreateClaimPageState extends State<CreateClaimPage> {
       _error = null;
     });
 
-    // NEW: require photo for lost posts
     if (_isLost && _imageFile == null) {
       setState(() {
         _loading = false;

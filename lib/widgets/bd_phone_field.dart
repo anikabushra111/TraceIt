@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-class BdPhoneField extends StatelessWidget {
-  final TextEditingController controller; // user types only: 1XXXXXXXXX
+class BdPhoneField extends StatefulWidget {
+  final TextEditingController controller;
   final bool enabled;
   final String? errorText;
 
@@ -14,27 +14,51 @@ class BdPhoneField extends StatelessWidget {
   });
 
   static bool isValidBdMobileLocalPart(String s) {
-    // After +880, BD mobile numbers are typically: 1[3-9]XXXXXXXX
     return RegExp(r'^1[3-9]\d{8}$').hasMatch(s.trim());
   }
 
   static String toE164(String localPart) => '+880${localPart.trim()}';
 
   @override
+  State<BdPhoneField> createState() => _BdPhoneFieldState();
+}
+
+class _BdPhoneFieldState extends State<BdPhoneField> {
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  bool get _showPrefix =>
+      _focusNode.hasFocus || widget.controller.text.trim().isNotEmpty;
+
+  @override
   Widget build(BuildContext context) {
     return TextField(
-      controller: controller,
-      enabled: enabled,
+      controller: widget.controller,
+      focusNode: _focusNode,
+      enabled: widget.enabled,
       keyboardType: TextInputType.phone,
       inputFormatters: [
         FilteringTextInputFormatter.digitsOnly,
         LengthLimitingTextInputFormatter(10),
       ],
       decoration: InputDecoration(
-        // ✅ NO labelText here (prevents the duplicated "Phone number" text)
-        prefixText: '+880 ',
-        hintText: '1XXXXXXXXX',
-        errorText: errorText,
+        prefixText: _showPrefix ? '+880 ' : null,
+        hintText: _showPrefix ? '1XXXXXXXXX' : '+880 ',
+        errorText: widget.errorText,
         filled: true,
         fillColor: const Color(0xFFF3F4F6),
         border: OutlineInputBorder(

@@ -31,8 +31,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     try {
       await Supabase.instance.client.auth.resetPasswordForEmail(
         email,
-        // IMPORTANT: this must be added to Supabase Redirect URLs
-        // and your Android/iOS deep linking must open the app for this scheme.
         redirectTo: 'traceit://reset-password',
       );
       setState(() => _msg = 'Reset link sent if email exists.');
@@ -135,7 +133,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
       if (!mounted) return;
 
-      // Simple success dialog (then go back to AuthGate via onDone)
       await showDialog(
         context: context,
         builder: (context) => AlertDialog(

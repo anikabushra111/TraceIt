@@ -7,7 +7,6 @@ import 'package:trace_it/claims/my_claims_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
-
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
@@ -83,6 +82,12 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() {});
   }
 
+  void _buyPointsComingSoon() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Buy points: future implementation')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -95,6 +100,9 @@ class _ProfilePageState extends State<ProfilePage> {
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
             }
 
             final profile = snapshot.data;
@@ -134,17 +142,26 @@ class _ProfilePageState extends State<ProfilePage> {
                 _ProfileField(label: 'Email', value: email),
                 const SizedBox(height: 16),
 
-                // Added: Phone (same UI component, no UI redesign)
                 _ProfileField(label: 'Phone', value: phone),
                 const SizedBox(height: 16),
 
                 _ProfileField(
                   label: 'Points',
                   value: points,
-                  trailing: const Icon(
-                    Icons.star,
-                    color: Color(0xFFF59E0B),
-                    size: 20,
+                  trailing: SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: IconButton(
+                      tooltip: 'Buy points',
+                      onPressed: _buyPointsComingSoon,
+                      icon: const Icon(
+                        Icons.add_circle_outline,
+                        color: Color(0xFF1F3A93),
+                        size: 22,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -201,12 +218,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                       if (confirm == true) {
                         await _authService.signOut();
-
                         if (!mounted) return;
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const AuthGate()),
-                          (route) => false,
-                        );
                       }
                     },
                     style: ElevatedButton.styleFrom(

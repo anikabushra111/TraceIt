@@ -28,7 +28,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         .stream(primaryKey: ['id'])
         .eq('user_id', user.id)
         .order('created_at', ascending: false)
-        .limit(200); // keep it snappy
+        .limit(200);
   }
 
   Future<void> _markRead(int id) async {

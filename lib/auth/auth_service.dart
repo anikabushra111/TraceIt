@@ -4,8 +4,6 @@ class AuthService {
   final _auth = Supabase.instance.client.auth;
   final _db = Supabase.instance.client;
 
-  static const _emailRedirectTo = 'traceit://login-callback';
-
   Future<void> signUp(
     String email,
     String password, {
@@ -14,34 +12,43 @@ class AuthService {
     String? department,
   }) async {
     final p = phone.trim();
-    if (!p.startsWith('+880')) {
-      throw 'Phone must be in +880 format';
-    }
+    if (!p.startsWith('+880')) throw 'Phone must be in +880 format';
+
+    final trimmedEmail = email.trim();
 
     final res = await _auth.signUp(
-      email: email,
+      email: trimmedEmail,
       password: password,
-      emailRedirectTo: _emailRedirectTo,
       data: {
         'phone': p,
-        if (name != null && name.isNotEmpty) 'name': name,
-        if (department != null && department.isNotEmpty)
-          'department': department,
+        if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+        if (department != null && department.trim().isNotEmpty)
+          'department': department.trim(),
       },
     );
 
-    // With email confirmation ON, session is usually null until user verifies. [web:409]
-    if (res.user == null) {
-      throw 'Signup failed (no user returned)';
-    }
+    final user = res.user;
+    if (user == null) throw 'Signup failed (no user returned).';
 
-    // Do NOT sign in here.
-    // After the user confirms email, they will sign in, and we will create profile + phone then.
+    final meta = user.userMetadata ?? {};
+    await _upsertProfile(
+      user.id,
+      email: trimmedEmail,
+      name: (meta['name'] ?? name)?.toString(),
+      department: (meta['department'] ?? department)?.toString(),
+    );
+
+    final metaPhone = (meta['phone'] ?? p).toString();
+    if (metaPhone.trim().isNotEmpty) {
+      await _upsertPhone(user.id, metaPhone);
+    }
   }
 
   Future<void> signIn(String email, String password) async {
+    final trimmedEmail = email.trim();
+
     final res = await _auth.signInWithPassword(
-      email: email,
+      email: trimmedEmail,
       password: password,
     );
 
@@ -49,41 +56,38 @@ class AuthService {
     if (user == null) return;
 
     final meta = user.userMetadata ?? {};
-    final metaName = meta['name']?.toString();
-    final metaDept = meta['department']?.toString();
+    await _upsertProfile(
+      user.id,
+      email: trimmedEmail,
+      name: meta['name']?.toString(),
+      department: meta['department']?.toString(),
+    );
+
     final metaPhone = meta['phone']?.toString();
-
-    await _ensureProfile(user.id, name: metaName, department: metaDept);
-
-    if (metaPhone != null && metaPhone.isNotEmpty) {
+    if (metaPhone != null && metaPhone.trim().isNotEmpty) {
       await _upsertPhone(user.id, metaPhone);
     }
   }
 
-  Future<void> _ensureProfile(
+  Future<void> _upsertProfile(
     String userId, {
+    required String email,
     String? name,
     String? department,
   }) async {
-    final existing = await _db
-        .from('profiles')
-        .select()
-        .eq('id', userId)
-        .maybeSingle();
-    if (existing != null) return;
+    final payload = <String, dynamic>{'id': userId, 'email': email.trim()};
 
-    await _db.from('profiles').insert({
-      'id': userId,
-      if (name != null && name.isNotEmpty) 'name': name,
-      if (department != null && department.isNotEmpty) 'department': department,
-    });
+    final n = (name ?? '').trim();
+    final d = (department ?? '').trim();
+    if (n.isNotEmpty) payload['name'] = n;
+    if (d.isNotEmpty) payload['department'] = d;
+
+    await _db.from('profiles').upsert(payload, onConflict: 'id');
   }
 
   Future<void> _upsertPhone(String userId, String phone) async {
     final p = phone.trim();
-    if (!p.startsWith('+880')) {
-      throw 'Phone must be in +880 format';
-    }
+    if (!p.startsWith('+880')) throw 'Phone must be in +880 format';
 
     await _db.from('profile_private').upsert({
       'user_id': userId,
@@ -91,9 +95,11 @@ class AuthService {
     }, onConflict: 'user_id');
   }
 
-  Future<void> signOut() async {
-    await _auth.signOut();
+  Future<void> resendSignupConfirmation(String email) async {
+    return;
   }
+
+  Future<void> signOut() async => _auth.signOut();
 
   Session? get session => _auth.currentSession;
 }

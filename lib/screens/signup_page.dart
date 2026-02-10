@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:trace_it/auth/auth_service.dart';
 import 'login_page.dart';
 
+import 'package:trace_it/auth/auth_gate.dart';
 import '../widgets/bd_phone_field.dart';
 
 class SignUpPage extends StatefulWidget {
@@ -20,7 +21,7 @@ class _SignUpPageState extends State<SignUpPage> {
   final _name = TextEditingController();
   final _department = TextEditingController();
   final _email = TextEditingController();
-  final _phone = TextEditingController(); // local part only: 1XXXXXXXXX
+  final _phone = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
 
@@ -90,19 +91,19 @@ class _SignUpPageState extends State<SignUpPage> {
       );
 
       if (!mounted) return;
-      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Verification email sent. Please verify your email, then log in.',
-          ),
-        ),
+        const SnackBar(content: Text('Account created successfully.')),
       );
 
-      _openLogin();
+      // IMPORTANT CHANGE:
+      // Clear auth pages and go to AuthGate.
+      // AuthGate will detect the session and show HomePage.
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AuthGate()),
+        (route) => false,
+      );
     } catch (e) {
-      print('SIGNUP ERROR: $e');
       setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -161,7 +162,6 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
                 const SizedBox(height: 32),
 
-                // Name
                 Text(
                   'Name',
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -174,9 +174,8 @@ class _SignUpPageState extends State<SignUpPage> {
                   controller: _name,
                   autovalidateMode: AutovalidateMode.onUnfocus,
                   validator: (v) {
-                    if ((v ?? '').trim().isEmpty) {
+                    if ((v ?? '').trim().isEmpty)
                       return 'Please enter your name.';
-                    }
                     return null;
                   },
                   decoration: InputDecoration(
@@ -191,7 +190,6 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // Department
                 Text(
                   'Department',
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -207,9 +205,8 @@ class _SignUpPageState extends State<SignUpPage> {
                       .map((d) => DropdownMenuItem(value: d, child: Text(d)))
                       .toList(),
                   validator: (v) {
-                    if ((v ?? '').trim().isEmpty) {
+                    if ((v ?? '').trim().isEmpty)
                       return 'Please select your department.';
-                    }
                     return null;
                   },
                   decoration: InputDecoration(
@@ -230,7 +227,6 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // Email
                 Text(
                   'Email',
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -244,9 +240,8 @@ class _SignUpPageState extends State<SignUpPage> {
                   keyboardType: TextInputType.emailAddress,
                   autovalidateMode: AutovalidateMode.onUnfocus,
                   validator: (v) {
-                    if ((v ?? '').trim().isEmpty) {
+                    if ((v ?? '').trim().isEmpty)
                       return 'Please enter your email.';
-                    }
                     return null;
                   },
                   decoration: InputDecoration(
@@ -261,7 +256,6 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // Phone number (label outside, no internal label)
                 Text(
                   'Phone number',
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -280,7 +274,6 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // Password
                 Text(
                   'Password',
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -296,9 +289,8 @@ class _SignUpPageState extends State<SignUpPage> {
                   validator: (v) {
                     final p = (v ?? '').trim();
                     if (p.isEmpty) return 'Please enter your password.';
-                    if (p.length < 6) {
+                    if (p.length < 6)
                       return 'Password must be at least 6 characters.';
-                    }
                     return null;
                   },
                   decoration: InputDecoration(
@@ -320,7 +312,6 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // Confirm password
                 Text(
                   'Confirm Password',
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -336,9 +327,8 @@ class _SignUpPageState extends State<SignUpPage> {
                   validator: (v) {
                     final conf = (v ?? '').trim();
                     if (conf.isEmpty) return 'Please confirm your password.';
-                    if (conf != _password.text.trim()) {
+                    if (conf != _password.text.trim())
                       return 'Passwords do not match.';
-                    }
                     return null;
                   },
                   decoration: InputDecoration(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:trace_it/claims/claims_service.dart';
 import 'package:postgrest/postgrest.dart';
+import 'package:intl/intl.dart';
 
 import '../widgets/bd_phone_field.dart';
 
@@ -51,8 +52,14 @@ class _ClaimsForPostPageState extends State<ClaimsForPostPage> {
       case 'closed':
         return 'Closed';
       default:
-        return ''; // hide pending label on owner screen
+        return '';
     }
+  }
+
+  String _formatDateOnly(String raw) {
+    final dt = DateTime.tryParse(raw);
+    if (dt == null) return '';
+    return DateFormat('dd/MM/yyyy').format(dt.toLocal());
   }
 
   Future<Map<String, String>> _loadClaimerBasic(String claimerId) async {
@@ -65,6 +72,49 @@ class _ClaimsForPostPageState extends State<ClaimsForPostPage> {
     final name = (row?['name'] ?? 'Unknown user').toString();
     final dept = (row?['department'] ?? 'Not set').toString();
     return {'name': name, 'department': dept};
+  }
+
+  // NEW: load full details for dialog (Name, Dept, Email, Points, Admin flag if you need)
+  Future<Map<String, dynamic>?> _loadFullProfile(String uid) async {
+    final row = await _supabase
+        .from('profiles')
+        .select('name, department, email, points, is_admin')
+        .eq('id', uid)
+        .maybeSingle();
+    return row;
+  }
+
+  // NEW: show dialog like HomePage (basic info + email)
+  Future<void> _showUserDetailsDialog(String uid) async {
+    final row = await _loadFullProfile(uid);
+
+    if (!mounted) return;
+
+    final p = row ?? {};
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('User details'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Name: ${p['name'] ?? 'Unknown'}'),
+              Text('Department: ${p['department'] ?? 'Not set'}'),
+              const SizedBox(height: 8),
+              Text('Email: ${p['email'] ?? 'Not stored'}'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _acceptFlow(Map<String, dynamic> claimRow) async {
@@ -104,7 +154,7 @@ class _ClaimsForPostPageState extends State<ClaimsForPostPage> {
 
     if (ok != true) return;
 
-    final local = phoneCtrl.text.trim();
+    final local = phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
     final msg = msgCtrl.text.trim();
 
     if (!BdPhoneField.isValidBdMobileLocalPart(local)) {
@@ -221,7 +271,9 @@ class _ClaimsForPostPageState extends State<ClaimsForPostPage> {
               final claimerId = (c['claimer_id'] ?? '').toString();
               final message = (c['message'] ?? '').toString();
               final imageUrl = (c['image_url'] ?? '').toString();
-              final createdAt = (c['created_at'] ?? '').toString();
+
+              final createdAtRaw = (c['created_at'] ?? '').toString();
+              final createdAtText = _formatDateOnly(createdAtRaw);
 
               final ownerReply = (c['owner_reply'] ?? '').toString();
               final ownerPhone = (c['owner_contact_phone'] ?? '').toString();
@@ -230,7 +282,6 @@ class _ClaimsForPostPageState extends State<ClaimsForPostPage> {
               final isAccepted = status == 'accepted';
               final isClosed = status == 'closed';
 
-              // only pending claims can be acted on AND only if nothing accepted yet
               final canAct = status == 'pending' && !hasAccepted;
 
               return Card(
@@ -257,7 +308,7 @@ class _ClaimsForPostPageState extends State<ClaimsForPostPage> {
                                   ),
                           ),
                           Text(
-                            createdAt,
+                            createdAtText,
                             style: const TextStyle(
                               fontSize: 11,
                               color: Colors.grey,
@@ -266,46 +317,56 @@ class _ClaimsForPostPageState extends State<ClaimsForPostPage> {
                         ],
                       ),
                       const SizedBox(height: 10),
+
+                      // CHANGED: make this tappable to open the user details dialog
                       FutureBuilder<Map<String, String>>(
                         future: _loadClaimerBasic(claimerId),
                         builder: (context, snap) {
                           final name = snap.data?['name'] ?? 'Loading...';
                           final dept = snap.data?['department'] ?? '';
 
-                          return Row(
-                            children: [
-                              const CircleAvatar(
-                                radius: 14,
-                                child: Icon(Icons.person, size: 16),
-                              ),
-                              const SizedBox(width: 8),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  if (dept.isNotEmpty)
+                          return InkWell(
+                            onTap: claimerId.isEmpty
+                                ? null
+                                : () => _showUserDetailsDialog(claimerId),
+                            child: Row(
+                              children: [
+                                const CircleAvatar(
+                                  radius: 14,
+                                  child: Icon(Icons.person, size: 16),
+                                ),
+                                const SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
                                     Text(
-                                      dept,
+                                      name,
                                       style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
                                       ),
                                     ),
-                                ],
-                              ),
-                            ],
+                                    if (dept.isNotEmpty)
+                                      Text(
+                                        dept,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           );
                         },
                       ),
+
                       const SizedBox(height: 10),
                       Text(message, style: const TextStyle(fontSize: 14)),
                       const SizedBox(height: 10),
+
+                      // UI FIX: smaller, proportional proof image preview
                       if (imageUrl.isNotEmpty)
                         GestureDetector(
                           onTap: () {
@@ -318,14 +379,13 @@ class _ClaimsForPostPageState extends State<ClaimsForPostPage> {
                           },
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              imageUrl,
-                              height: 180,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
+                            child: AspectRatio(
+                              aspectRatio: 16 / 9,
+                              child: Image.network(imageUrl, fit: BoxFit.cover),
                             ),
                           ),
                         ),
+
                       if (isAccepted && ownerReply.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         Text(
@@ -355,6 +415,7 @@ class _ClaimsForPostPageState extends State<ClaimsForPostPage> {
                           ),
                         ),
                       ],
+
                       const SizedBox(height: 12),
                       Row(
                         children: [

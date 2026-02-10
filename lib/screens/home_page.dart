@@ -1,10 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../widgets/notification_bell.dart';
 import 'post_page.dart';
 import 'profile_page.dart';
-import 'package:trace_it/auth/auth_gate.dart';
 import 'package:trace_it/claims/create_claim_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -18,6 +19,8 @@ class _HomePageState extends State<HomePage> {
   final _supabase = Supabase.instance.client;
 
   int _tabIndex = 0;
+  int _profileReload = 0;
+
   String _searchText = '';
   String _sort = 'newest';
 
@@ -26,8 +29,12 @@ class _HomePageState extends State<HomePage> {
   bool _isCurrentUserAdmin = false;
   String? _currentUserId;
 
+  bool _exitArmed = false;
+  Timer? _exitTimer;
+
   @override
   void dispose() {
+    _exitTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -36,72 +43,99 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
+    return PopScope(
+      canPop: _tabIndex == 0 && _exitArmed,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
 
-      appBar: _tabIndex == 0
-          ? AppBar(
-              actions: [
-                const NotificationBell(),
-                IconButton(
-                  icon: const Icon(Icons.logout),
-                  onPressed: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Log out?'),
-                        content: const Text(
-                          'Are you sure you want to log out of TraceIt?',
+        if (_tabIndex != 0) {
+          setState(() {
+            _tabIndex = 0;
+            _exitArmed = false;
+          });
+          return;
+        }
+
+        if (!_exitArmed) {
+          setState(() => _exitArmed = true);
+
+          ScaffoldMessenger.of(context).removeCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Press back again to exit')),
+          );
+
+          _exitTimer?.cancel();
+          _exitTimer = Timer(const Duration(seconds: 2), () {
+            if (!mounted) return;
+            setState(() => _exitArmed = false);
+          });
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: _tabIndex == 0
+            ? AppBar(
+                actions: [
+                  const NotificationBell(),
+                  IconButton(
+                    icon: const Icon(Icons.logout),
+                    onPressed: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Log out?'),
+                          content: const Text(
+                            'Are you sure you want to log out of TraceIt?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Log out'),
+                            ),
+                          ],
                         ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Log out'),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (confirm == true) {
-                      await _supabase.auth.signOut();
-                      if (!mounted) return;
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const AuthGate()),
-                        (route) => false,
                       );
-                    }
-                  },
-                ),
-              ],
-            )
-          : null,
 
-      body: SafeArea(
-        child: IndexedStack(
-          index: _tabIndex,
-          children: [
-            _buildFeedBody(context, theme),
-            const PostPage(),
-            const ProfilePage(),
+                      if (confirm == true) {
+                        await _supabase.auth.signOut();
+                        if (!mounted) return;
+                      }
+                    },
+                  ),
+                ],
+              )
+            : null,
+        body: SafeArea(
+          child: IndexedStack(
+            index: _tabIndex,
+            children: [
+              _buildFeedBody(context, theme),
+              const PostPage(),
+              ProfilePage(key: ValueKey(_profileReload)),
+            ],
+          ),
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _tabIndex,
+          onTap: (i) => setState(() {
+            _tabIndex = i;
+            _exitArmed = false;
+
+            if (i == 2) _profileReload++;
+          }),
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.add_box_outlined),
+              label: 'Post',
+            ),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ],
         ),
-      ),
-
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _tabIndex,
-        onTap: (i) => setState(() => _tabIndex = i),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_box_outlined),
-            label: 'Post',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
       ),
     );
   }
@@ -116,8 +150,9 @@ class _HomePageState extends State<HomePage> {
           child: Text(
             'Trace It',
             style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF111827),
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
+              color: const Color(0xFF1F3A93),
             ),
           ),
         ),
@@ -130,8 +165,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-
-        // Search + Sort
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Row(
@@ -166,7 +199,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         const SizedBox(height: 16),
-
         Expanded(
           child: FutureBuilder<List<Map<String, dynamic>>>(
             future: _fetchPosts(),
@@ -228,17 +260,16 @@ class _HomePageState extends State<HomePage> {
     final baseQuery = _supabase
         .from('posts')
         .select(
-          'id, user_id, title, description, image_url, image_path, created_at, status, post_type, is_resolved',
+          'id, user_id, title, description, image_url, image_path, created_at, status, post_type, is_resolved, reward',
         );
 
     final filteredQuery = isAdmin
         ? baseQuery
         : baseQuery.eq('status', 'approved');
 
-    final data = await filteredQuery.order(
-      'created_at',
-      ascending: _sort == 'oldest',
-    );
+    final data = await filteredQuery
+        .order('is_resolved', ascending: true)
+        .order('created_at', ascending: _sort == 'oldest');
 
     List<Map<String, dynamic>> posts = (data as List)
         .cast<Map<String, dynamic>>();
@@ -428,9 +459,9 @@ class _PostAuthor extends StatelessWidget {
                     children: [
                       Text('Name: ${p['name'] ?? 'Unknown'}'),
                       Text('Department: ${p['department'] ?? 'Not set'}'),
+                      const SizedBox(height: 8),
+                      Text('Email: ${p['email'] ?? 'Not stored'}'),
                       if (viewerIsAdmin) ...[
-                        const SizedBox(height: 8),
-                        Text('Email: ${p['email'] ?? 'Not stored'}'),
                         Text('Phone: ${phone ?? 'Not stored'}'),
                         Text('Points: ${p['points']?.toString() ?? '0'}'),
                         Text('Admin: ${p['is_admin'] == true ? 'Yes' : 'No'}'),
@@ -556,6 +587,12 @@ class _PostCardState extends State<_PostCard> {
     final String description = (post['description'] as String?) ?? '';
     final String status = (post['status'] ?? 'pending') as String;
 
+    final String postType = (post['post_type'] ?? 'found').toString();
+    final rewardRaw = post['reward'];
+    final int? reward = rewardRaw is int
+        ? rewardRaw
+        : int.tryParse((rewardRaw ?? '').toString());
+
     final bool hasLongText = description.length > 120;
     final shortDescription = hasLongText
         ? '${description.substring(0, 120)}...'
@@ -634,6 +671,17 @@ class _PostCardState extends State<_PostCard> {
             'Status: $status',
             style: TextStyle(fontSize: 12, color: statusColor),
           ),
+        if (postType == 'lost' && reward != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            'Reward: $reward points',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
         Text(
           _expanded || !hasLongText ? description : shortDescription,
@@ -647,7 +695,6 @@ class _PostCardState extends State<_PostCard> {
               child: Text(_expanded ? 'See less' : 'See more'),
             ),
           ),
-
         if (userId != null)
           _ClaimButton(
             postId: postId,
@@ -658,7 +705,6 @@ class _PostCardState extends State<_PostCard> {
             isResolved: isResolved,
             postStatus: status,
           ),
-
         if (widget.isAdmin) ...[
           const SizedBox(height: 8),
           Wrap(
